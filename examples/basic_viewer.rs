@@ -7,7 +7,10 @@ use spnav_rs::SpnavClient;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = SpnavClient::open().await?;
-    println!("Connected to spacenavd (protocol v{})", client.protocol_version());
+    println!(
+        "Connected to spacenavd (protocol v{})",
+        client.protocol_version()
+    );
     println!("Waiting for events... (Ctrl+C to exit)");
 
     loop {
@@ -20,7 +23,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 );
             }
             spnav_rs::event::SpnavEvent::Button(b) => {
-                println!("Button {} {}", b.bnum, if b.press { "pressed" } else { "released" });
+                println!(
+                    "Button {} {}",
+                    b.bnum,
+                    if b.press { "pressed" } else { "released" }
+                );
             }
             spnav_rs::event::SpnavEvent::Device(d) => {
                 println!(
@@ -35,7 +42,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("RawAxis: idx={} value={}", a.idx, a.value);
             }
             spnav_rs::event::SpnavEvent::RawButton(b) => {
-                println!("RawButton: btn={} {}", b.bnum, if b.press { "pressed" } else { "released" });
+                println!(
+                    "RawButton: btn={} {}",
+                    b.bnum,
+                    if b.press { "pressed" } else { "released" }
+                );
             }
         }
     }

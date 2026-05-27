@@ -56,11 +56,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Some(spnav_event) = spnav.try_event(&event)? {
             match spnav_event {
                 SpnavEvent::Motion(m) => {
-                    println!("motion: x={} y={} z={} rx={} ry={} rz={}",
-                        m.x, m.y, m.z, m.rx, m.ry, m.rz);
+                    println!(
+                        "motion: x={} y={} z={} rx={} ry={} rz={}",
+                        m.x, m.y, m.z, m.rx, m.ry, m.rz
+                    );
                 }
                 SpnavEvent::Button(b) => {
-                    println!("button: {} {}", if b.press { "press" } else { "release" }, b.bnum);
+                    println!(
+                        "button: {} {}",
+                        if b.press { "press" } else { "release" },
+                        b.bnum
+                    );
                 }
                 _ => {}
             }
@@ -73,7 +79,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             Event::KeyPress(key) => {
                 println!("key pressed: {}", key.detail);
-                if key.detail == 9 { // Escape key
+                if key.detail == 9 {
+                    // Escape key
                     break;
                 }
             }

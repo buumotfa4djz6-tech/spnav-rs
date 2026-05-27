@@ -1,12 +1,38 @@
+//! Position and rotation utilities for 6DOF input.
+
 use glam::{Mat4, Quat, Vec3};
 
 use crate::event::MotionEvent;
 
-/// Accumulator for position + quaternion orientation from motion events.
-/// Equivalent to C `spnav_posrot`.
+/// Accumulator for position and orientation from motion events.
+///
+/// This structure maintains a position vector and orientation quaternion,
+/// and can accumulate motion events into smooth 6DOF movement. It provides
+/// methods for both object-space and view-space movement, and can generate
+/// transformation matrices suitable for rendering.
+///
+/// Equivalent to C `spnav_posrot` in libspnav.
+///
+/// # Example
+///
+/// ```
+/// use spnav_rs::{PositionRot, SpnavEvent};
+///
+/// let mut pr = PositionRot::new();
+///
+/// // In your motion event handler:
+/// // if let SpnavEvent::Motion(m) = event {
+/// //     pr.move_obj(&m);
+/// // }
+///
+/// // Get the model matrix for rendering:
+/// let model = pr.to_model_matrix();
+/// ```
 #[derive(Debug, Clone, Copy)]
 pub struct PositionRot {
+    /// Position vector (x, y, z).
     pub pos: Vec3,
+    /// Orientation quaternion (x, y, z, w) where w is the real part.
     pub rot: Quat,
 }
 
@@ -17,7 +43,7 @@ impl Default for PositionRot {
 }
 
 impl PositionRot {
-    /// Initialize to zero position, identity rotation
+    /// Create a new accumulator at zero position with identity rotation.
     pub fn new() -> Self {
         Self {
             pos: Vec3::ZERO,
@@ -26,6 +52,11 @@ impl PositionRot {
     }
 
     /// Accumulate a motion event as object-space movement.
+    ///
+    /// The translation is applied in the object's local coordinate system.
+    /// The rotation is accumulated as a delta quaternion multiplied from
+    /// the left: `new_rot = delta * old_rot`.
+    ///
     /// Equivalent to C `spnav_posrot_moveobj`.
     pub fn move_obj(&mut self, ev: &MotionEvent) {
         self.pos.x += ev.x as f32 * 0.001;
@@ -43,6 +74,11 @@ impl PositionRot {
     }
 
     /// Accumulate a motion event as view-space movement.
+    ///
+    /// The translation is applied relative to the current view orientation.
+    /// This is suitable for first-person camera control where the camera
+    /// moves in the direction it's looking.
+    ///
     /// Equivalent to C `spnav_posrot_moveview`.
     pub fn move_view(&mut self, ev: &MotionEvent) {
         let len = (ev.rx as f32).hypot((ev.ry as f32).hypot(ev.rz as f32));
@@ -63,12 +99,22 @@ impl PositionRot {
     }
 
     /// Build a model/world matrix (OpenGL column-major).
+    ///
+    /// The resulting matrix applies rotation first, then translation.
+    /// Use this with [`move_obj()`](Self::move_obj) for positioning
+    /// objects in world space.
+    ///
     /// Equivalent to C `spnav_matrix_obj`.
     pub fn to_model_matrix(&self) -> Mat4 {
         Mat4::from_quat(self.rot) * Mat4::from_translation(self.pos)
     }
 
-    /// Build a view matrix.
+    /// Build a view matrix (OpenGL column-major).
+    ///
+    /// The resulting matrix applies translation first, then rotation.
+    /// Use this with [`move_view()`](Self::move_view) for camera
+    /// control in 3D space.
+    ///
     /// Equivalent to C `spnav_matrix_view`.
     pub fn to_view_matrix(&self) -> Mat4 {
         Mat4::from_translation(self.pos) * Mat4::from_quat(self.rot)

@@ -140,12 +140,9 @@ impl<C: Connection> X11Spnav<C> {
             data: ClientMessageData::from(data),
         };
 
-        self.conn.send_event(
-            false,
-            self.daemon_win,
-            EventMask::NO_EVENT,
-            event,
-        )?.ignore_error();
+        self.conn
+            .send_event(false, self.daemon_win, EventMask::NO_EVENT, event)?
+            .ignore_error();
 
         self.conn.flush()?;
         Ok(())
@@ -243,12 +240,9 @@ impl<C: Connection> X11Spnav<C> {
             data: ClientMessageData::from(data),
         };
 
-        self.conn.send_event(
-            false,
-            self.daemon_win,
-            EventMask::NO_EVENT,
-            event,
-        )?.ignore_error();
+        self.conn
+            .send_event(false, self.daemon_win, EventMask::NO_EVENT, event)?
+            .ignore_error();
 
         self.conn.flush()?;
         Ok(())
@@ -263,21 +257,12 @@ fn intern_atom<C: Connection>(conn: &C, name: &[u8]) -> Result<Atom> {
 
 /// Find the daemon window by reading the CommandEvent property from the root
 /// window and verifying the window's WM_NAME is "Magellan Window".
-fn find_daemon_window<C: Connection>(
-    conn: &C,
-    root: Window,
-    command_atom: Atom,
-) -> Result<Window> {
+fn find_daemon_window<C: Connection>(conn: &C, root: Window, command_atom: Atom) -> Result<Window> {
     // Read the CommandEvent property from root window.
     // The property contains the daemon's Window ID.
-    let reply = conn.get_property(
-        false,
-        root,
-        command_atom,
-        x11rb::NONE,
-        0,
-        1,
-    )?.reply()?;
+    let reply = conn
+        .get_property(false, root, command_atom, x11rb::NONE, 0, 1)?
+        .reply()?;
 
     if reply.value_len == 0 || reply.value.is_empty() {
         return Err(crate::error::Error::SocketNotFound);
@@ -300,14 +285,9 @@ fn find_daemon_window<C: Connection>(
 
     // Verify the window's WM_NAME is "Magellan Window"
     let wm_name_atom = intern_atom(conn, b"WM_NAME")?;
-    let name_reply = conn.get_property(
-        false,
-        daemon_win,
-        wm_name_atom,
-        x11rb::NONE,
-        0,
-        64,
-    )?.reply()?;
+    let name_reply = conn
+        .get_property(false, daemon_win, wm_name_atom, x11rb::NONE, 0, 64)?
+        .reply()?;
 
     let name = String::from_utf8_lossy(&name_reply.value);
     if name != "Magellan Window" {

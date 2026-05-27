@@ -1,5 +1,5 @@
-use std::path::Path;
 use std::os::unix::io::{AsRawFd, RawFd};
+use std::path::Path;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
@@ -7,9 +7,9 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::connection;
 use crate::error::{Error, Result};
-use crate::event::{EventType, SpnavEvent, DeviceType};
+use crate::event::{DeviceType, EventType, SpnavEvent};
 use crate::evmask::EventMask;
-use crate::protocol::{self, ReqResp, req};
+use crate::protocol::{self, req, ReqResp};
 
 /// The main client handle for communicating with spacenavd.
 pub struct SpnavClient {
@@ -152,9 +152,7 @@ impl SpnavClient {
         match self.event_rx.try_recv() {
             Ok(event) => Some(event),
             Err(broadcast::error::TryRecvError::Empty) => None,
-            Err(broadcast::error::TryRecvError::Lagged(_)) => {
-                self.event_rx.try_recv().ok()
-            }
+            Err(broadcast::error::TryRecvError::Lagged(_)) => self.event_rx.try_recv().ok(),
             Err(broadcast::error::TryRecvError::Closed) => None,
         }
     }
@@ -174,7 +172,9 @@ impl SpnavClient {
     pub async fn set_sensitivity(&self, sens: f32) -> Result<()> {
         if self.proto == 0 {
             // Protocol v0: raw float write (handled differently, not supported via request)
-            return Err(Error::Protocol("sensitivity not supported on protocol v0".into()));
+            return Err(Error::Protocol(
+                "sensitivity not supported on protocol v0".into(),
+            ));
         }
         let mut data = [0i32; 7];
         data[0] = f32_to_i32(sens);
@@ -397,7 +397,10 @@ impl SpnavClient {
             0 => Ok(LedState::Off),
             1 => Ok(LedState::On),
             2 => Ok(LedState::Auto),
-            _ => Err(Error::Protocol(format!("invalid LED state: {}", rr.data[0]))),
+            _ => Err(Error::Protocol(format!(
+                "invalid LED state: {}",
+                rr.data[0]
+            ))),
         }
     }
 
@@ -439,7 +442,9 @@ impl SpnavClient {
     /// Send a simple request and await response.
     async fn send_request(&self, req_type: i32, data: [i32; 7]) -> Result<ReqResp> {
         if self.proto < 1 {
-            return Err(Error::Protocol("request not supported on protocol v0".into()));
+            return Err(Error::Protocol(
+                "request not supported on protocol v0".into(),
+            ));
         }
 
         let rr = protocol::make_request(req_type, data);
@@ -447,7 +452,10 @@ impl SpnavClient {
 
         let (tx, rx) = oneshot::channel();
         self.req_tx
-            .send(InternalRequest::Simple { data: bytes, reply: tx })
+            .send(InternalRequest::Simple {
+                data: bytes,
+                reply: tx,
+            })
             .await
             .map_err(|_| Error::Protocol("event loop stopped".into()))?;
 
@@ -458,7 +466,9 @@ impl SpnavClient {
     /// Send a string request (chunked) and await string response.
     async fn send_string(&self, req_type: i32, s: &str) -> Result<()> {
         if self.proto < 1 {
-            return Err(Error::Protocol("string request not supported on protocol v0".into()));
+            return Err(Error::Protocol(
+                "string request not supported on protocol v0".into(),
+            ));
         }
 
         let chunks: Vec<[u8; 32]> = protocol::encode_string_chunks(req_type, s)
@@ -473,7 +483,8 @@ impl SpnavClient {
             .map_err(|_| Error::Protocol("event loop stopped".into()))?;
 
         // String set requests just return a status response, ignore the actual string
-        let _ = rx.await
+        let _ = rx
+            .await
             .map_err(|_| Error::Protocol("request cancelled".into()))?;
         Ok(())
     }
@@ -481,11 +492,16 @@ impl SpnavClient {
     /// Receive a string response.
     async fn recv_string(&self, req_type: i32) -> Result<String> {
         if self.proto < 1 {
-            return Err(Error::Protocol("string response not supported on protocol v0".into()));
+            return Err(Error::Protocol(
+                "string response not supported on protocol v0".into(),
+            ));
         }
         let (tx, rx) = oneshot::channel();
         self.req_tx
-            .send(InternalRequest::RecvString { req_type, reply: tx })
+            .send(InternalRequest::RecvString {
+                req_type,
+                reply: tx,
+            })
             .await
             .map_err(|_| Error::Protocol("event loop stopped".into()))?;
         rx.await
@@ -493,11 +509,17 @@ impl SpnavClient {
     }
 }
 
-/// LED state enumeration
+/// LED state for the device.
+///
+/// Controls the LED indicator on spacenavd-compatible devices.
+/// Use with [`SpnavClient::cfg_set_led()`] and [`SpnavClient::cfg_get_led()`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LedState {
+    /// LED is off.
     Off = 0,
+    /// LED is on.
     On = 1,
+    /// LED is controlled automatically by spacenavd.
     Auto = 2,
 }
 

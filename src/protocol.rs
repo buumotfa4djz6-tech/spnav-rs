@@ -156,7 +156,11 @@ pub fn decode_event(buf: &[u8; 32]) -> Option<SpnavEvent> {
             bnum: rr.data[0],
         })),
         UEV_DEV => Some(SpnavEvent::Device(DeviceEvent {
-            op: if rr.data[0] == 0 { DeviceOp::Add } else { DeviceOp::Remove },
+            op: if rr.data[0] == 0 {
+                DeviceOp::Add
+            } else {
+                DeviceOp::Remove
+            },
             id: rr.data[1],
             devtype: DeviceType::from_raw(rr.data[2]),
             usb_vendor: rr.data[3] as u32,
@@ -164,7 +168,9 @@ pub fn decode_event(buf: &[u8; 32]) -> Option<SpnavEvent> {
         })),
         UEV_CFG => Some(SpnavEvent::Config(ConfigEvent {
             cfg: rr.data[0],
-            data: [rr.data[1], rr.data[2], rr.data[3], rr.data[4], rr.data[5], rr.data[6]],
+            data: [
+                rr.data[1], rr.data[2], rr.data[3], rr.data[4], rr.data[5], rr.data[6],
+            ],
         })),
         UEV_RAWAXIS => Some(SpnavEvent::RawAxis(RawAxisEvent {
             idx: rr.data[0],
@@ -321,12 +327,12 @@ mod tests {
     fn test_decode_motion_event() {
         let mut buf = [0u8; 32];
         buf[0..4].copy_from_slice(&UEV_MOTION.to_ne_bytes());
-        buf[4..8].copy_from_slice(&10i32.to_ne_bytes());  // x
+        buf[4..8].copy_from_slice(&10i32.to_ne_bytes()); // x
         buf[8..12].copy_from_slice(&20i32.to_ne_bytes()); // y
         buf[12..16].copy_from_slice(&30i32.to_ne_bytes()); // z
-        buf[16..20].copy_from_slice(&1i32.to_ne_bytes());  // rx
-        buf[20..24].copy_from_slice(&2i32.to_ne_bytes());  // ry
-        buf[24..28].copy_from_slice(&3i32.to_ne_bytes());  // rz
+        buf[16..20].copy_from_slice(&1i32.to_ne_bytes()); // rx
+        buf[20..24].copy_from_slice(&2i32.to_ne_bytes()); // ry
+        buf[24..28].copy_from_slice(&3i32.to_ne_bytes()); // rz
         buf[28..32].copy_from_slice(&100i32.to_ne_bytes()); // period
 
         let ev = decode_event(&buf).unwrap();

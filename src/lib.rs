@@ -34,21 +34,21 @@
 //!
 //! - `x11` - Enable X11 (Magellan protocol) support for compatibility with 3dxsrv
 
+pub mod client;
+pub mod connection;
 pub mod error;
 pub mod event;
 pub mod evmask;
-pub mod protocol;
-pub mod connection;
-pub mod client;
 pub mod math;
+pub mod protocol;
 
 #[cfg(feature = "x11")]
 pub mod x11;
 
-pub use error::{Error, Result};
-pub use event::{SpnavEvent, EventType};
-pub use evmask::EventMask;
 pub use client::{LedState, SpnavClient};
+pub use error::{Error, Result};
+pub use event::{EventType, SpnavEvent};
+pub use evmask::EventMask;
 pub use math::PositionRot;
 
 #[cfg(feature = "x11")]
@@ -58,8 +58,8 @@ pub use x11::X11Spnav;
 mod tests {
     use crate::error::{Error, Result};
     use crate::event::{
-        ButtonEvent, ConfigEvent, DeviceEvent, DeviceOp, DeviceType, MotionEvent, RawAxisEvent,
-        RawButtonEvent, SpnavEvent, EventType,
+        ButtonEvent, ConfigEvent, DeviceEvent, DeviceOp, DeviceType, EventType, MotionEvent,
+        RawAxisEvent, RawButtonEvent, SpnavEvent,
     };
     use crate::evmask::EventMask;
     use crate::math::PositionRot;
@@ -70,33 +70,57 @@ mod tests {
     #[test]
     fn test_event_type_mapping() {
         let motion = SpnavEvent::Motion(MotionEvent {
-            x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0, period: 0,
+            x: 0,
+            y: 0,
+            z: 0,
+            rx: 0,
+            ry: 0,
+            rz: 0,
+            period: 0,
         });
         assert_eq!(motion.event_type(), EventType::Motion);
 
-        let btn = SpnavEvent::Button(ButtonEvent { press: true, bnum: 1 });
+        let btn = SpnavEvent::Button(ButtonEvent {
+            press: true,
+            bnum: 1,
+        });
         assert_eq!(btn.event_type(), EventType::Button);
 
         let dev = SpnavEvent::Device(DeviceEvent {
-            op: DeviceOp::Add, id: 0, devtype: DeviceType::Unknown,
-            usb_vendor: 0, usb_product: 0,
+            op: DeviceOp::Add,
+            id: 0,
+            devtype: DeviceType::Unknown,
+            usb_vendor: 0,
+            usb_product: 0,
         });
         assert_eq!(dev.event_type(), EventType::Device);
 
-        let cfg = SpnavEvent::Config(ConfigEvent { cfg: 0, data: [0; 6] });
+        let cfg = SpnavEvent::Config(ConfigEvent {
+            cfg: 0,
+            data: [0; 6],
+        });
         assert_eq!(cfg.event_type(), EventType::Config);
 
         let axis = SpnavEvent::RawAxis(RawAxisEvent { idx: 0, value: 0 });
         assert_eq!(axis.event_type(), EventType::RawAxis);
 
-        let rbtn = SpnavEvent::RawButton(RawButtonEvent { bnum: 0, press: false });
+        let rbtn = SpnavEvent::RawButton(RawButtonEvent {
+            bnum: 0,
+            press: false,
+        });
         assert_eq!(rbtn.event_type(), EventType::RawButton);
     }
 
     #[test]
     fn test_motion_event_fields() {
         let ev = MotionEvent {
-            x: 10, y: -20, z: 30, rx: 1, ry: -2, rz: 3, period: 16,
+            x: 10,
+            y: -20,
+            z: 30,
+            rx: 1,
+            ry: -2,
+            rz: 3,
+            period: 16,
         };
         assert_eq!(ev.x, 10);
         assert_eq!(ev.period, 16);
@@ -104,8 +128,14 @@ mod tests {
 
     #[test]
     fn test_button_press_and_release() {
-        let press = SpnavEvent::Button(ButtonEvent { press: true, bnum: 0 });
-        let release = SpnavEvent::Button(ButtonEvent { press: false, bnum: 0 });
+        let press = SpnavEvent::Button(ButtonEvent {
+            press: true,
+            bnum: 0,
+        });
+        let release = SpnavEvent::Button(ButtonEvent {
+            press: false,
+            bnum: 0,
+        });
         assert_ne!(press, release);
     }
 
@@ -123,8 +153,11 @@ mod tests {
     #[test]
     fn test_device_event_add_remove() {
         let add = DeviceEvent {
-            op: DeviceOp::Add, id: 1, devtype: DeviceType::SMPro,
-            usb_vendor: 0x046d, usb_product: 0xc629,
+            op: DeviceOp::Add,
+            id: 1,
+            devtype: DeviceType::SMPro,
+            usb_vendor: 0x046d,
+            usb_product: 0xc629,
         };
         assert_eq!(add.usb_vendor, 0x046d);
         assert_eq!(add.devtype, DeviceType::SMPro);
@@ -173,10 +206,22 @@ mod tests {
     fn test_move_obj_accumulates() {
         let mut pr = PositionRot::new();
         let ev1 = MotionEvent {
-            x: 500, y: 0, z: 0, rx: 0, ry: 0, rz: 0, period: 0,
+            x: 500,
+            y: 0,
+            z: 0,
+            rx: 0,
+            ry: 0,
+            rz: 0,
+            period: 0,
         };
         let ev2 = MotionEvent {
-            x: 500, y: 0, z: 0, rx: 0, ry: 0, rz: 0, period: 0,
+            x: 500,
+            y: 0,
+            z: 0,
+            rx: 0,
+            ry: 0,
+            rz: 0,
+            period: 0,
         };
         pr.move_obj(&ev1);
         pr.move_obj(&ev2);
@@ -187,7 +232,13 @@ mod tests {
     fn test_move_view_rotates_around_origin() {
         let mut pr = PositionRot::new();
         let ev = MotionEvent {
-            x: 0, y: 0, z: 0, rx: 100, ry: 0, rz: 0, period: 0,
+            x: 0,
+            y: 0,
+            z: 0,
+            rx: 100,
+            ry: 0,
+            rz: 0,
+            period: 0,
         };
         pr.move_view(&ev);
         assert_eq!(pr.pos, Vec3::ZERO);
@@ -204,8 +255,10 @@ mod tests {
         // Model matrix: rotation * translation (column-major, translation gets rotated)
         // View matrix: translation * rotation (translation stays un-rotated)
         // These should produce different translation components
-        assert!((model.w_axis.x - view.w_axis.x).abs() > 0.1
-            || (model.w_axis.y - view.w_axis.y).abs() > 0.1);
+        assert!(
+            (model.w_axis.x - view.w_axis.x).abs() > 0.1
+                || (model.w_axis.y - view.w_axis.y).abs() > 0.1
+        );
     }
 
     // --- Error type tests ---
@@ -224,8 +277,12 @@ mod tests {
 
     #[test]
     fn test_result_alias() {
-        fn returns_ok() -> Result<u32> { Ok(42) }
-        fn returns_err() -> Result<u32> { Err(Error::Timeout) }
+        fn returns_ok() -> Result<u32> {
+            Ok(42)
+        }
+        fn returns_err() -> Result<u32> {
+            Err(Error::Timeout)
+        }
         assert!(returns_ok().is_ok());
         assert!(matches!(returns_err(), Err(Error::Timeout)));
     }

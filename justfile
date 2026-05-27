@@ -63,6 +63,14 @@ info:
 config:
     cargo run --example config_tool --all-features
 
+# Run x11_viewer example (requires x11 feature)
+x11:
+    cargo run --example x11_viewer --all-features
+
+# Run x11_cube example (requires x11 feature)
+cube:
+    cargo run --example x11_cube --all-features
+
 # Run a named example: just example <name>
 example name:
     cargo run --example {{name}} --all-features

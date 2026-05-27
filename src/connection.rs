@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::UnixStream;
@@ -48,13 +48,15 @@ fn parse_spnavrc() -> Option<PathBuf> {
 
 /// Connect to the daemon. The caller must perform the protocol handshake separately.
 pub async fn connect(path: &Path) -> Result<UnixStream> {
-    UnixStream::connect(path).await.map_err(|_| Error::SocketNotFound)
+    UnixStream::connect(path)
+        .await
+        .map_err(|_| Error::SocketNotFound)
 }
 
 /// Perform protocol handshake on an already-connected stream.
 /// Returns the negotiated protocol version.
 pub async fn handshake(stream: &mut UnixStream) -> Result<u8> {
-    use crate::protocol::{self, ReqResp, req, REQ_TAG};
+    use crate::protocol::{self, req, ReqResp, REQ_TAG};
     use tokio::io::AsyncReadExt;
 
     // Send protocol change request as a single i32
@@ -67,7 +69,8 @@ pub async fn handshake(stream: &mut UnixStream) -> Result<u8> {
         std::time::Duration::from_millis(300),
         stream.read_exact(&mut resp_buf),
     )
-    .await {
+    .await
+    {
         let rr = ReqResp::from_bytes(&resp_buf);
         if rr.is_response() {
             return Ok((rr.type_ & 0xff) as u8);

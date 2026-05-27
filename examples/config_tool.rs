@@ -29,7 +29,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Verified sensitivity: {:.2}", verified);
 
     // Show deadzone for axis 0
-    println!("\nDeadzone for axis 0: {}", client.cfg_get_deadzone(0).await?);
+    println!(
+        "\nDeadzone for axis 0: {}",
+        client.cfg_get_deadzone(0).await?
+    );
 
     // Show axis mapping
     println!("\nAxis mapping (dev_axis -> map):");

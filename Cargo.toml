@@ -1,0 +1,30 @@
+[package]
+name = "spnav-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Rust async client library for 6DOF input devices (spacenav/spacenavd)"
+license = "BSD-3-Clause"
+repository = "https://github.com/FreeSpacenav/libspnav"
+homepage = "https://github.com/FreeSpacenav/libspnav"
+readme = "README.md"
+keywords = ["spacenav", "spacenavd", "6dof", "input", "x11"]
+categories = ["api-bindings", "hardware-support"]
+
+[features]
+default = []
+x11 = ["dep:x11rb"]
+
+[dependencies]
+tokio = { version = "1", features = ["net", "sync", "rt", "rt-multi-thread", "macros", "io-util", "time"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+bytes = "1"
+thiserror = "2"
+glam = "0.30"
+bitflags = "2"
+x11rb = { version = "0.13", optional = true }
+futures-core = "0.3"
+
+[lib]
+name = "spnav_rs"
+path = "src/lib.rs"

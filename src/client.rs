@@ -1,3 +1,46 @@
+//! High-level async client for communicating with spacenavd.
+//!
+//! This module provides [`SpnavClient`], the primary interface for connecting to the
+//! spacenavd daemon and receiving 6DOF input events. Most users should start here
+//! rather than using the lower-level [`connection`] or
+//! [`protocol`] modules directly.
+//!
+//! # Architecture
+//!
+//! [`SpnavClient`] wraps a UNIX socket connection and spawns a background event loop
+//! that continuously reads from the daemon. Events are broadcast to all subscribers
+//! via a tokio broadcast channel, allowing multiple consumers to receive the same
+//! event stream.
+//!
+//! The client supports two modes of operation:
+//!
+//! - **Polling**: Call [`SpnavClient::poll_event()`] for non-blocking event retrieval.
+//! - **Async waiting**: Call [`SpnavClient::wait_event()`] to asynchronously wait for
+//!   the next event.
+//! - **Stream API**: Call [`SpnavClient::subscribe()`] to get a `Stream` of events.
+//!
+//! # Protocol Versions
+//!
+//! The client negotiates the highest supported protocol version during connection.
+//! Protocol v1 (supported by spacenavd 1.0+) enables additional features like
+//! per-client sensitivity, event masks, device queries, and the configuration API.
+//! Protocol v0 is a fallback for older daemons.
+//!
+//! # Examples
+//!
+//! ```no_run
+//! use spnav_rs::SpnavClient;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut client = SpnavClient::open().await?;
+//!     loop {
+//!         let event = client.wait_event().await?;
+//!         println!("Event: {:?}", event);
+//!     }
+//! }
+//! ```
+
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;
 
@@ -204,29 +247,39 @@ impl SpnavClient {
 
     // --- Device queries (protocol v1) ---
 
+    /// Get the device name (protocol v1 only).
     pub async fn dev_name(&self) -> Result<String> {
         self.recv_string(req::DEV_NAME).await
     }
 
+    /// Get the device path (protocol v1 only).
     pub async fn dev_path(&self) -> Result<String> {
         self.recv_string(req::DEV_PATH).await
     }
 
+    /// Get the number of buttons on the device (protocol v1 only).
     pub async fn dev_buttons(&self) -> Result<u32> {
         let rr = self.send_request(req::DEV_NBUTTONS, [0; 7]).await?;
         Ok(rr.data[0] as u32)
     }
 
+    /// Get the number of axes on the device (protocol v1 only).
     pub async fn dev_axes(&self) -> Result<u32> {
         let rr = self.send_request(req::DEV_NAXES, [0; 7]).await?;
         Ok(rr.data[0] as u32)
     }
 
+    /// Get the USB vendor and product IDs (protocol v1 only).
+    ///
+    /// Returns `(vendor_id, product_id)`. Returns `(0, 0)` for serial devices.
     pub async fn dev_usbid(&self) -> Result<(u32, u32)> {
         let rr = self.send_request(req::DEV_USBID, [0; 7]).await?;
         Ok((rr.data[0] as u32, rr.data[1] as u32))
     }
 
+    /// Get the device type (protocol v1 only).
+    ///
+    /// Returns a [`DeviceType`] enum variant identifying the specific device model.
     pub async fn dev_type(&self) -> Result<DeviceType> {
         let rr = self.send_request(req::DEV_TYPE, [0; 7]).await?;
         Ok(DeviceType::from_raw(rr.data[0]))
@@ -234,21 +287,25 @@ impl SpnavClient {
 
     // --- Configuration API (protocol v1) ---
 
+    /// Reset all configuration to defaults (protocol v1 only).
     pub async fn cfg_reset(&self) -> Result<()> {
         self.send_request(req::CFG_RESET, [0; 7]).await?;
         Ok(())
     }
 
+    /// Restore configuration from persistent storage (protocol v1 only).
     pub async fn cfg_restore(&self) -> Result<()> {
         self.send_request(req::CFG_RESTORE, [0; 7]).await?;
         Ok(())
     }
 
+    /// Save current configuration to persistent storage (protocol v1 only).
     pub async fn cfg_save(&self) -> Result<()> {
         self.send_request(req::CFG_SAVE, [0; 7]).await?;
         Ok(())
     }
 
+    /// Set global sensitivity (protocol v1 only).
     pub async fn cfg_set_sens(&self, s: f32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = f32_to_i32(s);
@@ -256,11 +313,16 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get global sensitivity (protocol v1 only).
     pub async fn cfg_get_sens(&self) -> Result<f32> {
         let rr = self.send_request(req::GCFG_SENS, [0; 7]).await?;
         Ok(i32_to_f32(rr.data[0]))
     }
 
+    /// Set per-axis sensitivity (protocol v1 only).
+    ///
+    /// The array contains sensitivity values for each of the 6 axes
+    /// (tx, ty, tz, rx, ry, rz).
     pub async fn cfg_set_axis_sens(&self, svec: [f32; 6]) -> Result<()> {
         let mut data = [0i32; 7];
         for i in 0..6 {
@@ -270,6 +332,9 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get per-axis sensitivity (protocol v1 only).
+    ///
+    /// Returns an array of sensitivity values for each of the 6 axes.
     pub async fn cfg_get_axis_sens(&self) -> Result<[f32; 6]> {
         let rr = self.send_request(req::GCFG_SENS_AXIS, [0; 7]).await?;
         let mut svec = [0.0f32; 6];
@@ -279,6 +344,9 @@ impl SpnavClient {
         Ok(svec)
     }
 
+    /// Set deadzone for a device axis (protocol v1 only).
+    ///
+    /// `devaxis` is the device axis index (0-5), `delta` is the deadzone width.
     pub async fn cfg_set_deadzone(&self, devaxis: i32, delta: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = devaxis;
@@ -287,6 +355,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get deadzone for a device axis (protocol v1 only).
     pub async fn cfg_get_deadzone(&self, devaxis: i32) -> Result<i32> {
         let mut data = [0i32; 7];
         data[0] = devaxis;
@@ -294,6 +363,9 @@ impl SpnavClient {
         Ok(rr.data[1])
     }
 
+    /// Set axis inversion bits (protocol v1 only).
+    ///
+    /// `invbits` is a bitmask where bit 0 inverts axis 0, bit 1 inverts axis 1, etc.
     pub async fn cfg_set_invert(&self, invbits: i32) -> Result<()> {
         let mut data = [0i32; 7];
         for (i, item) in data.iter_mut().enumerate().take(6) {
@@ -303,6 +375,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get axis inversion bits (protocol v1 only).
     pub async fn cfg_get_invert(&self) -> Result<i32> {
         let rr = self.send_request(req::GCFG_INVERT, [0; 7]).await?;
         let mut res = 0i32;
@@ -312,6 +385,9 @@ impl SpnavClient {
         Ok(res)
     }
 
+    /// Set axis mapping for a device axis (protocol v1 only).
+    ///
+    /// `devaxis` is the source device axis, `map` is the target axis.
     pub async fn cfg_set_axismap(&self, devaxis: i32, map: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = devaxis;
@@ -320,6 +396,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get axis mapping for a device axis (protocol v1 only).
     pub async fn cfg_get_axismap(&self, devaxis: i32) -> Result<i32> {
         let mut data = [0i32; 7];
         data[0] = devaxis;
@@ -327,6 +404,9 @@ impl SpnavClient {
         Ok(rr.data[1])
     }
 
+    /// Set button mapping (protocol v1 only).
+    ///
+    /// `devbn` is the source button number, `map` is the target button number.
     pub async fn cfg_set_bnmap(&self, devbn: i32, map: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = devbn;
@@ -335,6 +415,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get button mapping (protocol v1 only).
     pub async fn cfg_get_bnmap(&self, devbn: i32) -> Result<i32> {
         let mut data = [0i32; 7];
         data[0] = devbn;
@@ -342,6 +423,9 @@ impl SpnavClient {
         Ok(rr.data[1])
     }
 
+    /// Set button action (protocol v1 only).
+    ///
+    /// `bn` is the button number, `act` is the action code.
     pub async fn cfg_set_bnaction(&self, bn: i32, act: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = bn;
@@ -350,6 +434,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get button action (protocol v1 only).
     pub async fn cfg_get_bnaction(&self, bn: i32) -> Result<i32> {
         let mut data = [0i32; 7];
         data[0] = bn;
@@ -357,6 +442,9 @@ impl SpnavClient {
         Ok(rr.data[1])
     }
 
+    /// Set keyboard mapping for a button (protocol v1 only).
+    ///
+    /// `bn` is the button number, `key` is the X11 keysym.
     pub async fn cfg_set_kbmap(&self, bn: i32, key: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = bn;
@@ -365,6 +453,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get keyboard mapping for a button (protocol v1 only).
     pub async fn cfg_get_kbmap(&self, bn: i32) -> Result<i32> {
         let mut data = [0i32; 7];
         data[0] = bn;
@@ -372,6 +461,7 @@ impl SpnavClient {
         Ok(rr.data[1])
     }
 
+    /// Enable or disable Y/Z axis swap (protocol v1 only).
     pub async fn cfg_set_swapyz(&self, swap: bool) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = if swap { 1 } else { 0 };
@@ -379,11 +469,15 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get Y/Z axis swap state (protocol v1 only).
     pub async fn cfg_get_swapyz(&self) -> Result<bool> {
         let rr = self.send_request(req::GCFG_SWAPYZ, [0; 7]).await?;
         Ok(rr.data[0] != 0)
     }
 
+    /// Set LED state (protocol v1 only).
+    ///
+    /// See [`LedState`] for available states.
     pub async fn cfg_set_led(&self, state: LedState) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = state as i32;
@@ -391,6 +485,7 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get LED state (protocol v1 only).
     pub async fn cfg_get_led(&self) -> Result<LedState> {
         let rr = self.send_request(req::GCFG_LED, [0; 7]).await?;
         match rr.data[0] {
@@ -404,6 +499,10 @@ impl SpnavClient {
         }
     }
 
+    /// Enable or disable device grabbing (protocol v1 only).
+    ///
+    /// When enabled, spacenavd exclusively grabs the device, preventing other
+    /// applications from receiving raw input.
     pub async fn cfg_set_grab(&self, state: bool) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = if state { 1 } else { 0 };
@@ -411,20 +510,28 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get device grabbing state (protocol v1 only).
     pub async fn cfg_get_grab(&self) -> Result<bool> {
         let rr = self.send_request(req::GCFG_GRAB, [0; 7]).await?;
         Ok(rr.data[0] != 0)
     }
 
+    /// Set serial device path (protocol v1 only).
+    ///
+    /// Used for serial-connected devices to specify the serial port.
     pub async fn cfg_set_serial(&self, devpath: &str) -> Result<()> {
         self.send_string(req::SCFG_SERDEV, devpath).await?;
         Ok(())
     }
 
+    /// Get serial device path (protocol v1 only).
     pub async fn cfg_get_serial(&self) -> Result<String> {
         self.recv_string(req::GCFG_SERDEV).await
     }
 
+    /// Set button repeat interval in milliseconds (protocol v1 only).
+    ///
+    /// Set to -1 to disable button repeat.
     pub async fn cfg_set_repeat(&self, msec: i32) -> Result<()> {
         let mut data = [0i32; 7];
         data[0] = if msec < 0 { -1 } else { msec };
@@ -432,6 +539,9 @@ impl SpnavClient {
         Ok(())
     }
 
+    /// Get button repeat interval in milliseconds (protocol v1 only).
+    ///
+    /// Returns -1 if button repeat is disabled.
     pub async fn cfg_get_repeat(&self) -> Result<i32> {
         let rr = self.send_request(req::GCFG_REPEAT, [0; 7]).await?;
         Ok(rr.data[0])

@@ -11,6 +11,10 @@ readme = "README.md"
 keywords = ["spacenav", "spacenavd", "6dof", "input", "x11"]
 categories = ["api-bindings", "hardware-support"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 default = []
 x11 = ["dep:x11rb"]

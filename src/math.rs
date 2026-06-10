@@ -1,4 +1,23 @@
 //! Position and rotation utilities for 6DOF input.
+//!
+//! This module provides [`PositionRot`], an accumulator for integrating motion events
+//! into smooth 6DOF position and orientation. It maintains a position vector and
+//! orientation quaternion, and can generate transformation matrices for rendering.
+//!
+//! # Coordinate Systems
+//!
+//! The module supports two movement modes:
+//!
+//! - **Object-space** ([`PositionRot::move_obj()`]): Movement relative to the object's
+//!   local coordinate system. Suitable for positioning objects in world space.
+//! - **View-space** ([`PositionRot::move_view()`]): Movement relative to the current
+//!   view orientation. Suitable for first-person camera control.
+//!
+//! # Matrix Generation
+//!
+//! Use [`PositionRot::to_model_matrix()`] for object positioning (rotation then translation)
+//! or [`PositionRot::to_view_matrix()`] for camera control (translation then rotation).
+//! Both return OpenGL column-major matrices compatible with `glam::Mat4`.
 
 use glam::{Mat4, Quat, Vec3};
 

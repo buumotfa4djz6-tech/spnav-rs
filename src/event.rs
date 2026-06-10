@@ -1,4 +1,23 @@
 //! Event types for spacenav input devices.
+//!
+//! This module defines the event types emitted by spacenavd when the device state changes.
+//! The main event type is [`SpnavEvent`], a union of all possible event variants.
+//!
+//! # Event Categories
+//!
+//! - **Motion** ([`MotionEvent`]): 6DOF translation and rotation values
+//! - **Button** ([`ButtonEvent`]): Button press and release events
+//! - **Device** ([`DeviceEvent`]): Device connection and disconnection
+//! - **Config** ([`ConfigEvent`]): Configuration parameter changes
+//! - **Raw axis/button** ([`RawAxisEvent`], [`RawButtonEvent`]): Pre-mapping values
+//!
+//! Each event has an associated [`EventType`] enum variant for filtering and matching.
+//!
+//! # Usage
+//!
+//! Events are received via [`SpnavClient::wait_event()`](crate::SpnavClient::wait_event)
+//! or [`SpnavClient::poll_event()`](crate::SpnavClient::poll_event). Use pattern matching
+//! to handle specific event types.
 
 /// Types of spnav events.
 ///

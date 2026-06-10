@@ -1,4 +1,26 @@
 //! Event mask types for filtering spacenav events.
+//!
+//! This module provides [`EventMask`], a bitmask type for selecting which event types
+//! to receive from spacenavd. Use with [`SpnavClient::set_event_mask()`](crate::SpnavClient::set_event_mask)
+//! to filter the event stream.
+//!
+//! # Usage
+//!
+//! ```
+//! use spnav_rs::EventMask;
+//!
+//! // Only receive motion and button events
+//! let mask = EventMask::MOTION | EventMask::BUTTON;
+//!
+//! // Receive all event types
+//! let mask = EventMask::ALL;
+//! ```
+//!
+//! # Predefined Masks
+//!
+//! - [`EventMask::INPUT`]: Motion + button events (most common)
+//! - [`EventMask::DEFAULT`]: Input + device events
+//! - [`EventMask::ALL`]: All event types including raw and config
 
 bitflags::bitflags! {
     /// Bitmask for selecting which event types to receive.

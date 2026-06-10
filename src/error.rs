@@ -1,4 +1,17 @@
 //! Error types for spnav-rs.
+//!
+//! This module defines [`Error`], the unified error type for all operations in this crate.
+//! It covers I/O errors, protocol violations, connection state issues, and X11-specific
+//! errors (when the `x11` feature is enabled).
+//!
+//! The [`Result`] type alias is provided for convenience.
+//!
+//! # Error Categories
+//!
+//! - **I/O errors**: Socket read/write failures, connection timeouts
+//! - **Protocol errors**: Invalid responses, unexpected data, daemon failures
+//! - **Connection state**: Attempting operations on closed connections
+//! - **X11 errors**: X11 resource or connection errors (requires `x11` feature)
 
 use std::io;
 
@@ -31,14 +44,17 @@ pub enum Error {
     SocketNotFound,
     /// X11 resource ID error (with `x11` feature).
     #[cfg(feature = "x11")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "x11")))]
     #[error("X11 resource ID error: {0}")]
     X11(#[from] x11rb::errors::ReplyOrIdError),
     /// X11 connection error (with `x11` feature).
     #[cfg(feature = "x11")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "x11")))]
     #[error("X11 connection error: {0}")]
     X11Conn(#[from] x11rb::errors::ConnectionError),
     /// X11 reply error (with `x11` feature).
     #[cfg(feature = "x11")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "x11")))]
     #[error("X11 reply error: {0}")]
     X11Reply(#[from] x11rb::errors::ReplyError),
 }

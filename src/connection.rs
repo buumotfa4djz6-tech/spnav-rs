@@ -1,3 +1,27 @@
+//! Low-level UNIX socket connection management for spacenavd.
+//!
+//! This module handles the transport layer: discovering the spacenavd socket path,
+//! establishing the connection, and performing the initial protocol handshake.
+//!
+//! Most users should use [`SpnavClient`](crate::SpnavClient) from the
+//! [`client`](crate::client) module instead of calling these functions directly.
+//! This module is exposed for advanced use cases like custom connection handling
+//! or testing.
+//!
+//! # Socket Discovery
+//!
+//! The socket path is determined by [`find_socket()`], which checks in order:
+//!
+//! 1. `SPNAV_SOCKET` environment variable
+//! 2. `/etc/spnavrc` configuration file (socket = line)
+//! 3. Default path: `/var/run/spnav.sock`
+//!
+//! # Handshake
+//!
+//! After connecting, [`handshake()`] negotiates the protocol version with the daemon.
+//! The daemon may support protocol v0 (legacy) or v1 (with extended features).
+//! The handshake also handles sensitivity initialization for v0 connections.
+
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};

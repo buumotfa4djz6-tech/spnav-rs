@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ── 1. Validate ──────────────────────────────────────────────
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract tag metadata
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Cargo.toml version matches tag
+        run: |
+          CARGO_VERSION=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+          TAG_VERSION="${{ steps.meta.outputs.version }}"
+          if [ "$CARGO_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Version mismatch: Cargo.toml=$CARGO_VERSION, tag=$TAG_VERSION"
+            exit 1
+          fi
+
+  # ── 2. Test ──────────────────────────────────────────────────
+  test:
+    name: Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Install X11 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all-features
+
+  clippy:
+    name: Clippy
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install X11 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-features -- -D warnings
+
+  # ── 3. Generate Changelog ────────────────────────────────────
+  changelog:
+    name: Generate Changelog
+    needs: [validate, test, clippy]
+    runs-on: ubuntu-latest
+    outputs:
+      notes_file: ${{ steps.changelog.outputs.notes_file }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        run: |
+          # Use pre-built binary for speed
+          GH_CLIFF_VERSION="2.7.0"
+          curl -sSfL "https://github.com/orhun/git-cliff/releases/download/v${GH_CLIFF_VERSION}/git-cliff-${GH_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
+          sudo mv git-cliff-${GH_CLIFF_VERSION}/git-cliff /usr/local/bin/
+          rm -rf git-cliff-${GH_CLIFF_VERSION}
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Generate release notes (without header, for GitHub Release body)
+          git-cliff --tag "${{ needs.validate.outputs.tag }}" --strip header -o release-notes.md
+
+          # Generate full CHANGELOG.md
+          git-cliff --tag "${{ needs.validate.outputs.tag }}" -o CHANGELOG.md
+
+          echo "notes_file=release-notes.md" >> "$GITHUB_OUTPUT"
+
+      - name: Upload changelog artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: |
+            release-notes.md
+            CHANGELOG.md
+
+  # ── 4. Publish to crates.io ─────────────────────────────────
+  publish:
+    name: Publish to crates.io
+    needs: [validate, test, clippy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install X11 dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxext-dev
+
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --all-features
+
+  # ── 5. Create GitHub Release ────────────────────────────────
+  github-release:
+    name: GitHub Release
+    needs: [validate, changelog, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+
+      - name: Download changelog artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "docs: update CHANGELOG.md for ${{ needs.validate.outputs.tag }}"
+          git push
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES=$(cat release-notes.md)
+          gh release create "${{ needs.validate.outputs.tag }}" \
+            --title "${{ needs.validate.outputs.tag }}" \
+            --notes "$NOTES" \
+            --verify-tag

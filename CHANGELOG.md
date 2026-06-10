@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-10
+
+### Fixed
+
+- Update MSRV to 1.85 for edition 2024 compatibility (getrandom v0.4.2)
+
+### Changed
+
+- Integrate Rust standard documentation system
+- Overhaul test suite with comprehensive integration tests
+- Add `deny.toml` for dependency auditing
+- Enhance `.gitignore`
+- Resolve CI failures and add comprehensive README
+
 ## [0.1.0] - 2024-XX-XX
 
 ### Added
@@ -38,4 +52,5 @@ All devices supported by spacenavd, including:
 - CadMan
 - NuLOOQ
 
-[0.1.0]: https://github.com/libspnav/spnav-rs/releases/tag/v0.1.0
+[0.1.1]: https://github.com/buumotfa4djz6-tech/spnav-rs/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/buumotfa4djz6-tech/spnav-rs/releases/tag/v0.1.0

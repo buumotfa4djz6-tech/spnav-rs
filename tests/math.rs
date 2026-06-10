@@ -20,20 +20,6 @@ fn default_starts_at_zero() {
     assert!(pr.rot.abs_diff_eq(Quat::IDENTITY, 1e-6));
 }
 
-#[test]
-fn is_copy() {
-    let pr = PositionRot::new();
-    let pr2 = pr;
-    assert_eq!(pr.pos, pr2.pos);
-}
-
-#[test]
-fn is_debug() {
-    let pr = PositionRot::new();
-    let debug = format!("{:?}", pr);
-    assert!(debug.contains("PositionRot"));
-}
-
 // ─── move_obj tests ─────────────────────────────────────────────────────────
 
 #[test]

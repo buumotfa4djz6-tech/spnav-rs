@@ -1,5 +1,11 @@
 //! Integration tests for the protocol module.
 
+mod common;
+
+use common::{
+    encode_button_frame, encode_cfg_frame, encode_dev_frame, encode_motion_frame,
+    encode_rawaxis_frame, encode_rawbutton_frame,
+};
 use spnav_rs::event::*;
 use spnav_rs::protocol::*;
 
@@ -162,65 +168,6 @@ fn make_request_with_zero_data() {
 }
 
 // ─── decode_event tests ─────────────────────────────────────────────────────
-
-fn encode_motion_frame(x: i32, y: i32, z: i32, rx: i32, ry: i32, rz: i32, period: i32) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    buf[0..4].copy_from_slice(&UEV_MOTION.to_ne_bytes());
-    buf[4..8].copy_from_slice(&x.to_ne_bytes());
-    buf[8..12].copy_from_slice(&y.to_ne_bytes());
-    buf[12..16].copy_from_slice(&z.to_ne_bytes());
-    buf[16..20].copy_from_slice(&rx.to_ne_bytes());
-    buf[20..24].copy_from_slice(&ry.to_ne_bytes());
-    buf[24..28].copy_from_slice(&rz.to_ne_bytes());
-    buf[28..32].copy_from_slice(&period.to_ne_bytes());
-    buf
-}
-
-fn encode_button_frame(press: bool, bnum: i32) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    let evt_type = if press { UEV_PRESS } else { UEV_RELEASE };
-    buf[0..4].copy_from_slice(&evt_type.to_ne_bytes());
-    buf[4..8].copy_from_slice(&bnum.to_ne_bytes());
-    buf
-}
-
-fn encode_dev_frame(op: i32, id: i32, devtype: i32, vendor: i32, product: i32) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    buf[0..4].copy_from_slice(&UEV_DEV.to_ne_bytes());
-    buf[4..8].copy_from_slice(&op.to_ne_bytes());
-    buf[8..12].copy_from_slice(&id.to_ne_bytes());
-    buf[12..16].copy_from_slice(&devtype.to_ne_bytes());
-    buf[16..20].copy_from_slice(&vendor.to_ne_bytes());
-    buf[20..24].copy_from_slice(&product.to_ne_bytes());
-    buf
-}
-
-fn encode_cfg_frame(cfg: i32, data: [i32; 6]) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    buf[0..4].copy_from_slice(&UEV_CFG.to_ne_bytes());
-    buf[4..8].copy_from_slice(&cfg.to_ne_bytes());
-    for i in 0..6 {
-        let off = 8 + i * 4;
-        buf[off..off + 4].copy_from_slice(&data[i].to_ne_bytes());
-    }
-    buf
-}
-
-fn encode_rawaxis_frame(idx: i32, value: i32) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    buf[0..4].copy_from_slice(&UEV_RAWAXIS.to_ne_bytes());
-    buf[4..8].copy_from_slice(&idx.to_ne_bytes());
-    buf[8..12].copy_from_slice(&value.to_ne_bytes());
-    buf
-}
-
-fn encode_rawbutton_frame(bnum: i32, press: bool) -> [u8; 32] {
-    let mut buf = [0u8; 32];
-    buf[0..4].copy_from_slice(&UEV_RAWBUTTON.to_ne_bytes());
-    buf[4..8].copy_from_slice(&bnum.to_ne_bytes());
-    buf[8..12].copy_from_slice(&(press as i32).to_ne_bytes());
-    buf
-}
 
 #[test]
 fn decode_motion_all_axes() {

@@ -69,6 +69,8 @@ pub struct SpnavClient {
 enum InternalRequest {
     Simple {
         data: [u8; 32],
+        /// The expected response type (REQ_TAG | req_type) for validation.
+        expected_type: i32,
         reply: oneshot::Sender<Result<ReqResp>>,
     },
     String {
@@ -585,6 +587,7 @@ impl SpnavClient {
         self.req_tx
             .send(InternalRequest::Simple {
                 data: bytes,
+                expected_type: rr.type_,
                 reply: tx,
             })
             .await
@@ -695,7 +698,7 @@ impl EventLoopState {
                 // Outgoing request from client
                 Some(msg) = self.req_rx.recv() => {
                     match msg {
-                        InternalRequest::Simple { data, reply } => {
+                        InternalRequest::Simple { data, expected_type, reply } => {
                             if write_half.write_all(&data).await.is_err() {
                                 let _ = reply.send(Err(Error::Io(std::io::Error::new(
                                     std::io::ErrorKind::BrokenPipe,
@@ -705,7 +708,7 @@ impl EventLoopState {
                             }
 
                             // Read response frames until we get a response
-                            let result = Self::read_response(&mut read_half, &self.event_tx).await;
+                            let result = Self::read_response(&mut read_half, expected_type, &self.event_tx).await;
                             let _ = reply.send(result);
                         }
                         InternalRequest::String { chunks, reply } => {
@@ -813,8 +816,11 @@ impl EventLoopState {
     }
 
     /// Read frames until we get a response, forwarding events along the way.
+    /// Read frames until we get a response matching `expected_type`, forwarding events along the way.
+    /// Returns an error if the response type doesn't match or the status indicates failure.
     async fn read_response(
         read_half: &mut tokio::net::unix::OwnedReadHalf,
+        expected_type: i32,
         event_tx: &broadcast::Sender<SpnavEvent>,
     ) -> Result<ReqResp> {
         let mut buf = [0u8; 32];
@@ -823,6 +829,12 @@ impl EventLoopState {
                 Ok(_) => {
                     let rr = ReqResp::from_bytes(&buf);
                     if rr.is_response() {
+                        if rr.type_ != expected_type {
+                            return Err(Error::Protocol(format!(
+                                "response type mismatch: expected 0x{:x}, got 0x{:x}",
+                                expected_type, rr.type_
+                            )));
+                        }
                         if rr.status_ok() {
                             return Ok(rr);
                         } else {

@@ -124,7 +124,7 @@ async fn events_interleaved_with_request_are_not_lost() {
         sim.send(encode_motion_frame(100, 0, 0, 0, 0, 0, 0));
         sim.send(
             ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             }
             .to_bytes(),

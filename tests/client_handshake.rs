@@ -78,7 +78,7 @@ async fn simple_request_round_trip() {
 
             // Send back a tagged OK response (data[6] >= 0 ⇒ status_ok).
             let response = ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             };
             sim.send(response.to_bytes());

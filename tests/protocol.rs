@@ -388,9 +388,12 @@ fn request_constants_are_unique() {
 }
 
 #[test]
-fn cfg_save_and_reset_share_value() {
-    // CFG_SAVE and CFG_RESET have the same value (0x3ffe) in the C protocol
-    assert_eq!(req::CFG_SAVE, req::CFG_RESET);
+fn cfg_save_restore_reset_are_distinct() {
+    // REQ_CFG_SAVE = 0x3ffe, REQ_CFG_RESTORE = 0x3fff, REQ_CFG_RESET = 0x4000
+    // (auto-incremented in C proto.h)
+    assert_eq!(req::CFG_SAVE, 0x3ffe);
+    assert_eq!(req::CFG_RESTORE, 0x3fff);
+    assert_eq!(req::CFG_RESET, 0x4000);
 }
 
 #[test]

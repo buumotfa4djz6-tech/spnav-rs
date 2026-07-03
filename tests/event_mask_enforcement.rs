@@ -38,7 +38,7 @@ async fn set_event_mask_default_encodes_correctly() {
         assert_eq!(rr.data[0], EventMask::DEFAULT.bits() as i32);
         sim.send(
             ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             }
             .to_bytes(),
@@ -56,7 +56,7 @@ async fn set_event_mask_all_encodes_correctly() {
         assert_eq!(rr.data[0], EventMask::ALL.bits() as i32);
         sim.send(
             ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             }
             .to_bytes(),
@@ -73,7 +73,7 @@ async fn set_event_mask_empty_encodes_zero() {
         assert_eq!(rr.data[0], 0, "empty mask should encode as zero");
         sim.send(
             ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             }
             .to_bytes(),
@@ -90,7 +90,7 @@ async fn set_event_mask_daemon_failure_propagates() {
         let mut data = [0i32; 7];
         data[6] = -1;
         let response = ReqResp {
-            type_: REQ_TAG,
+            type_: REQ_TAG | req::SET_EVMASK,
             data,
         };
         sim.send(response.to_bytes());
@@ -116,7 +116,7 @@ async fn set_event_mask_only_writes_one_frame() {
         assert_eq!(rr.type_, REQ_TAG | req::SET_EVMASK);
         sim_for_handler.send(
             ReqResp {
-                type_: REQ_TAG,
+                type_: REQ_TAG | req::SET_EVMASK,
                 data: [0; 7],
             }
             .to_bytes(),

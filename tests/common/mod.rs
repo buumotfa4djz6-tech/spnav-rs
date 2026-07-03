@@ -88,13 +88,10 @@ pub fn encode_rawbutton_frame(bnum: i32, press: bool) -> [u8; 32] {
 }
 
 /// Build a handshake response advertising the given protocol version.
-/// The client reads `type_ & 0xff` as the negotiated version.
-fn encode_handshake_response(proto_version: i32) -> [u8; 32] {
-    let rr = ReqResp {
-        type_: REQ_TAG | proto_version,
-        data: [0; 7],
-    };
-    rr.to_bytes()
+/// The real daemon responds with a single i32 (4 bytes), not a full 32-byte frame.
+fn encode_handshake_response(proto_version: i32) -> [u8; 4] {
+    let val = (REQ_TAG | proto_version) as u32;
+    val.to_ne_bytes()
 }
 
 // ─── SpnavDaemonSimulator ───────────────────────────────────────────────────

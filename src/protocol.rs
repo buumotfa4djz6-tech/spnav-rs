@@ -151,7 +151,7 @@ pub mod req {
     /// Restore configuration from persistent storage.
     pub const CFG_RESTORE: i32 = 0x3fff;
     /// Reset configuration to defaults.
-    pub const CFG_RESET: i32 = 0x3fff - 1;
+    pub const CFG_RESET: i32 = 0x4000;
 
     /// Change protocol version.
     pub const CHANGE_PROTO: i32 = 0x5500;

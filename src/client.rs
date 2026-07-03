@@ -143,7 +143,29 @@ impl SpnavClient {
 
     /// Remove pending events of the specified type from the queue.
     /// Returns the number of events removed.
-    /// If event_type is EventType::Motion, all pending motion events are removed.
+    ///
+    /// # Known limitation
+    ///
+    /// This implementation uses a `tokio::sync::broadcast` channel, which does not
+    /// support re-inserting events after inspection. Non-matching events drained
+    /// from the receiver are **lost** — they will not be delivered to subsequent
+    /// [`wait_event()`]/[`poll_event()`] calls.
+    ///
+    /// This differs from libspnav's `spnav_remove_events()`, which uses an internal
+    /// linked-list queue to preserve non-matching events.
+    ///
+    /// For example, if the pending queue is `[Motion, Button, Motion, Motion]` and
+    /// `remove_events(Motion)` is called:
+    /// - libspnav result: queue becomes `[Button]`
+    /// - This implementation: queue becomes `[]` (Button is also lost)
+    ///
+    /// This is usually not a problem for real-time consumers, but may cause issues
+    /// under high event rates with slow consumers.
+    ///
+    /// TODO: Replace broadcast channel with a peekable queue to match libspnav behavior.
+    ///
+    /// [`wait_event()`]: Self::wait_event
+    /// [`poll_event()`]: Self::poll_event
     pub fn remove_events(&mut self, event_type: EventType) -> usize {
         let mut removed = 0;
         loop {
@@ -152,8 +174,7 @@ impl SpnavClient {
                     if event.event_type() == event_type {
                         removed += 1;
                     }
-                    // Note: non-matching events are lost in this simple implementation
-                    // A more sophisticated approach would re-queue them
+                    // Non-matching events are lost — see doc comment above.
                 }
                 Err(broadcast::error::TryRecvError::Empty) => break,
                 Err(broadcast::error::TryRecvError::Lagged(_)) => continue,

@@ -80,24 +80,25 @@ pub async fn connect(path: &Path) -> Result<UnixStream> {
 /// Perform protocol handshake on an already-connected stream.
 /// Returns the negotiated protocol version.
 pub async fn handshake(stream: &mut UnixStream) -> Result<u8> {
-    use crate::protocol::{self, req, ReqResp, REQ_TAG};
+    use crate::protocol::{self, req, REQ_TAG};
     use tokio::io::AsyncReadExt;
 
-    // Send protocol change request as a single i32
+    // Send protocol change request as a single i32 (4 bytes)
     let cmd: u32 = (REQ_TAG | req::CHANGE_PROTO | protocol::MAX_PROTO_VER) as u32;
     stream.write_all(&cmd.to_ne_bytes()).await?;
 
     // Wait for response with 300ms timeout
-    let mut resp_buf = [0u8; 32];
+    // The daemon responds with a single i32 (4 bytes), not a full 32-byte frame
+    let mut resp_buf = [0u8; 4];
     if let Ok(Ok(_)) = tokio::time::timeout(
         std::time::Duration::from_millis(300),
         stream.read_exact(&mut resp_buf),
     )
     .await
     {
-        let rr = ReqResp::from_bytes(&resp_buf);
-        if rr.is_response() {
-            return Ok((rr.type_ & 0xff) as u8);
+        let resp_val = i32::from_ne_bytes(resp_buf);
+        if (resp_val & REQ_TAG) != 0 {
+            return Ok((resp_val & 0xff) as u8);
         }
     }
 
